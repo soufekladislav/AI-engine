@@ -1,0 +1,24 @@
+# Nasazení Fresh AI Engine 0.5.3 + Chat 0.3.2
+
+## Přechod z produkčních verzí Engine 0.5.2 a Chat 0.3.1
+
+1. Nejprve zálohuj **obě databáze** a původní soubory obou aplikací. Při výměně kódu **nepřepisuj existující `.env`, `.htaccess`, nastavení Python prostředí ani produkční Passenger startovací cestu**. Oba ZIPy nahrávej do jejich správných, různých doménových adresářů; nikoliv jako novou složku uvnitř aplikace.
+2. Nahraj *Engine 0.5.3* přes současnou aplikaci a restartuj jej v cPanelu. `/v1/health` zobrazí `0.5.3-cpanel-wsgi`. Nová tabulka `chat_usage_users` vzniká při prvním startu; **pouze pokud chybí oprávnění CREATE**, importuj `SQL-0.5.3.sql` v **databázi Enginu** a opět restartuj. Žádné stávající tabulky se nemažou.
+3. Nahraj *Chat 0.3.2* do adresáře Chatu a restartuj jej. `/health` vrátí `0.3.2`. Chat nepotřebuje SQL migraci.
+4. Zkontroluj, že hodnota `FRESH_CHAT_ENGINE_KEY` na **Enginu** je stejný vyhrazený, tajný řetězec (min. 32 znaků) jako `FRESH_ENGINE_API_KEY` na **Chatu**. Pokud Chat běží na obecném klíči nebo klíči zákaznického konektoru, Engine z bezpečnostních důvodů nepřiřadí nové chatové požadavky konkrétnímu uživateli. **Nikdy neposílej klíče ani hesla v manifestu/screenshotu.**
+5. Pro načtení *všech aktivních registrovaných uživatelů Chatu* vytvoř **druhý, odlišný** náhodný klíč (min. 32 znaků; např. v terminálu serveru `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`). Do `.env` Chatu jej vlož jako `CHAT_REPORTING_SECRET`, do `.env` Enginu jako `FRESH_CHAT_REPORTING_SECRET`; hodnoty musí být totožné. Potom restartuj obě aplikace. Toto není Chat→Engine klíč z bodu 4. Volitelně nastav v `.env` Enginu `FRESH_CHAT_URL=https://chat.freshcrackers.cz` (výchozí). Engine pouze na admin stránce načítá jména, e-maily a identifikátory přes zabezpečené HTTPS API, nikoli zprávy ani historii. Při výpadku ukáže dosud známé uživatele a upozornění. Seznam se obnovuje maximálně 1× za 15 minut.
+6. Otevři **Zákaznické účty**. Kurzy ČNB se načítají automaticky z oficiálního denního TXT; první otevření může kvůli ověření ČNB trvat max. 4 sekundy. Následně maximálně jednou za 12 hodin při otevření přehledu nebo během standardního `cron_worker.py`. Pokud ČNB není dostupná, zachová se poslední platná hodnota a označí se datum/selhání. Ruční kurz už není potřeba. Můžeš spustit aktualizaci tlačítkem.
+7. U účtů uvidíš horizontálně posuvný přehled a v detailu dosavadní rozpad projektů. Zákazník v `/account` vidí místo technických rezervací **zaúčtované čerpání** a dobití. Auditní záznamy `reserve`/`settlement` v DB zůstávají kvůli bezpečnému vyúčtování zachované; nesmazávat je.
+8. Otevři **Provoz Fresh AI Chat**, zkontroluj aktivní uživatele. Přihlas se do Chatu, napiš zkušební zprávu a obnov přehled – nová externí úloha se přiřadí k tvému účtu. Dřívější chatová historie, kterou Engine zaznamenal bez uživatelského identifikátoru, zůstává jako *historický nepřiřazený provoz*. Nedohadujeme autorství podle e-mailu ani obsahu chatu.
+
+## Poznámka k příjmům / profitabilitě Chatu
+
+**Tato aktualizace nepřidává nové zpoplatnění Fresh AI Chatu.** Při použití vyhrazeného servisního klíče má Chat zatím externí modelové náklady, ale většina jeho úloh nemá záznam `job_billing` a tudíž žádné **prokazatelně odečtené** kredity. Přehled proto ukáže náklad providera, počet nezpoplatněných úloh a u jejich uživatelů **nevypočítá fiktivní marži**. Samotná nominální cena kreditu se nerovná částce fakturované a zaplacené v e-shopu. Pro zjištění skutečného příjmu podle uživatele je potřeba navázat Chat na jeho vlastní úhrady/credit wallet a doložit účetní data; tato verze chování plateb nemění.
+
+## Výpočet a kurz
+
+Přehled účtů agreguje pouze **dokončené zaúčtované úlohy aktivních zákaznických účtů**. U cen zachová existující snapshots za úlohy od v0.5.2, a u dřívějších bez historického kurzu používá dostupný aktuální orientační kurz a označuje je jako orientační. Odchylku proti skutečné faktuře poskytovatele nelze tímto odhadovým přehledem samostatně vysvětlit. ČNB ve všední dny publikuje kurz kolem 14:30; o víkendech a svátcích může být poslední datum kurzu starší než dnešek.
+
+**Testy a omezení:** Provedené offline testy zahrnují parser kurzu, jeho cache a chybovou cestu; účty/součty/projekty, chatové identity a nepřiřazenou historii, statickou kontrolu Jinja, syntaxe a balíčků. Integraci s živým Passengerem, produkční MariaDB, aktuální ČNB dostupností ze serveru a internetovým napojením Chatu je třeba po nasazení vyzkoušet. Na serveru připojení k internetu nebo přístup k ČNB může být omezen; v tomto případě se kurz v účtu automaticky nezmění, přehled na to upozorní.
+
+**Návrat:** V případě potíží vrať soubory Engine 0.5.2 a Chat 0.3.1 ze záloh a restartuj obě aplikace. Novou tabulku `chat_usage_users` můžeš v databázi ponechat; starší Engine ji nevyužívá.

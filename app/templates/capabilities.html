@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Schopnosti · Fresh AI Engine{% endblock %}
+{% block content %}
+<header><div><h1>Schopnosti a rozpoznávání</h1><p>Jak se z požadavku určuje typ úlohy a které textové modely jej mohou zpracovat.</p></div></header>
+{% if notice %}<div class="notice {{ 'warn' if error else '' }}">{{ notice }}</div>{% endif %}
+<section class="panel"><h2>Postup rozpoznání</h2>
+<p>1. Pokud klient v API předá <code>task_type</code> (i <code>general</code>), použije se beze změny. 2. Je-li pole vynecháno nebo <code>null</code>, Engine hledá fráze podle jejich priority. Při shodě se zvolí vyšší priorita, poté delší fráze. 3. Bez shody se použije <code>general</code>. Rozpoznání je deterministické a nevolá další AI; význam textu mimo nastavené fráze neposuzuje. V detailu procesu se uloží původ přiřazení a případné odpovídající pravidlo. Model se vybírá až poté podle schopností u route.</p>
+<p>Schopnost sama o sobě nepřipojuje API poskytovatele. Textovou schopnost přiřaď konkrétním modelům v <a href="/admin/models">Modely & routing</a> přidáním jejího kódu do pole Capabilities. Pro obraz/video použij dedikované multimodální API; video adaptéry v této verzi nejsou implementované.</p></section>
+<section class="panel"><h2>Přidat vlastní textovou schopnost</h2><form method="post" action="/admin/capabilities/create" class="stack narrow">
+<label>Kód (např. <code>legal_summary</code>)<input name="code" required maxlength="50" pattern="[a-z][a-z0-9_]{1,49}"></label>
+<label>Název<input name="label" required maxlength="120"></label>
+<label>Definice / kdy se má použít<textarea name="description" rows="2" required maxlength="2000"></textarea></label>
+<label>Rozpoznávací fráze – jedna na řádek<textarea name="phrases" rows="3" placeholder="shrň smlouvu&#10;právní shrnutí"></textarea></label>
+<label>Priorita shody (0–1000)<input type="number" name="priority" min="0" max="1000" value="50"></label>
+<button>Vytvořit schopnost</button></form></section>
+<section class="panel"><h2>Registr schopností</h2><p>Kódy existujících schopností není možné změnit – mohlo by to zpětně změnit směrování. Měnit můžeš jejich definici, fráze, prioritu a aktivaci pro automatické rozpoznání. Volající aplikace může zadat typ explicitně i při vypnutém automatickém rozpoznávání.</p>
+{% for c in capabilities %}<details class="cap-item"><summary><strong>{{ c.label }}</strong> <code>{{ c.code }}</code> · priorita {{ c.priority }} · {{ 'Automaticky aktivní' if c.enabled else 'Automaticky vypnuto' }} {% if c.code in media_codes %}· pouze multimodální API{% endif %}</summary>
+<form class="stack narrow" method="post" action="/admin/capabilities/{{ c.code }}/update">
+<label>Název<input name="label" required maxlength="120" value="{{ c.label }}"></label>
+<label>Definice<textarea name="description" rows="2" required maxlength="2000">{{ c.description }}</textarea></label>
+<label>Fráze (jedna na řádek)<textarea name="phrases" rows="4">{{ phrases[c.code]|join('\n') }}</textarea></label>
+<label>Priorita<input type="number" name="priority" min="0" max="1000" value="{{ c.priority }}"></label>
+<label><input type="checkbox" name="enabled" {% if c.enabled %}checked{% endif %}> Zapnout automatické rozpoznávání</label>
+<button>Uložit změny</button></form></details>{% endfor %}
+</section>{% endblock %}

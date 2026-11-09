@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Přehled · Fresh AI Engine{% endblock %}
+{% block content %}
+<header><div><h1>Provoz Engine</h1><p>Centrální inference, routing a provozní logy.</p></div>
+<form method="post" action="/admin/queue/toggle"><button class="{{ 'danger' if not paused else '' }}">{{ 'Pozastavit frontu' if not paused else 'Spustit frontu' }}</button></form></header>
+<div class="grid metrics">
+  <section><b>{{ last24 }}</b><span>úloh / 24 h</span></section>
+  <section><b>{{ queued }}</b><span>čeká ve frontě</span></section>
+  <section><b>{{ completed }}</b><span>dokončeno celkem</span></section>
+  <section><b>{{ failed }}</b><span>chyb celkem</span></section>
+  <section><b>{{ avg_latency }} ms</b><span>průměrná latence</span></section>
+  <section><b>${{ '%.4f'|format(cost) }}</b><span>evidovaný náklad</span></section>
+</div>
+<div class="notice {{ 'warn' if paused else '' }}">Fronta: <strong>{{ 'POZASTAVENA' if paused else 'běží' }}</strong></div>
+
+{% if alerts %}
+<section class="panel">
+  <div class="panelhead"><div><h2>Provozní upozornění</h2><p>Failover a dočasně nedostupné AI platformy.</p></div><form method="post" action="/admin/alerts/clear"><button class="secondary-button">Skrýt vše</button></form></div>
+  {% for a in alerts %}
+  <div class="notice {{ 'warn' if a.severity == 'warning' else '' }}">
+    <div><strong>{{ a.title }}</strong><br><span>{{ a.message }}</span>{% if a.repeat_count and a.repeat_count > 1 %}<small> · opakováno {{ a.repeat_count }}×</small>{% endif %}{% if a.metadata and a.metadata.job_id %}<br><a href="/admin/jobs/{{ a.metadata.job_id }}">Detail úlohy →</a>{% endif %}</div>
+    <form method="post" action="/admin/alerts/{{ a.id }}/dismiss"><button class="secondary-button">Skrýt</button></form>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panelhead"><div><h2>Dostupnost AI platforem</h2><p>Provider guard po billing, autorizaci, rate-limit nebo síťové chybě dočasně vyřadí platformu z routingu.</p></div></div>
+  <table><thead><tr><th>Provider</th><th>Stav</th><th>Důvod</th><th>Blokace do</th><th></th></tr></thead><tbody>
+  {% for name, g in provider_guards.items() %}
+  <tr><td>{{ name }}</td><td><span class="status {{ 'failed' if g.state == 'open' else 'completed' }}">{{ g.state }}</span></td><td>{{ g.category or '—' }}</td><td>{{ g.blocked_until_prague or g.blocked_until or '—' }}</td><td>{% if g.state != 'closed' %}<form method="post" action="/admin/provider-guard/{{ name }}/clear"><button class="secondary-button">Ověřit znovu / odblokovat</button></form>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody></table>
+</section>
+
+<section class="panel"><div class="panelhead"><h2>Poslední procesy</h2><a href="/admin/jobs">Všechny →</a></div>
+<table><thead><tr><th>Čas (Praha)</th><th>Zdroj</th><th>Úloha</th><th>Stav</th><th>Model</th><th>Latence</th><th>Náklad</th></tr></thead><tbody>
+{% for j in recent %}<tr><td><a href="/admin/jobs/{{ j.id }}">{{ j.created_at|prague_time('%d.%m. %H:%M:%S') }}</a></td><td>{{ j.source }}</td><td>{{ j.task_type }}{% if j.operation %}<small>{{ j.operation }}</small>{% endif %}</td><td><span class="status {{ j.status }}">{{ j.status }}</span></td><td>{{ j.provider or '—' }} / {{ j.model_name or '—' }}</td><td>{{ j.latency_ms }} ms</td><td>${{ '%.6f'|format(j.estimated_cost_usd) }}</td></tr>{% else %}<tr><td colspan="7">Zatím žádný provoz.</td></tr>{% endfor %}
+</tbody></table></section>
+{% endblock %}

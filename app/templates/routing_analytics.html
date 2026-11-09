@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Rozdělení provozu · Fresh AI Engine{% endblock %}
+{% block content %}
+<header>
+  <div><h1>Rozdělení provozu</h1><p>Kam Engine skutečně posílá úlohy, kolik stojí a jak se chová aktuální routing.</p></div>
+  <div class="periods">
+    <a class="period {{ 'active' if period == '24h' else '' }}" href="?period=24h">24 h</a>
+    <a class="period {{ 'active' if period == '7d' else '' }}" href="?period=7d">7 dní</a>
+    <a class="period {{ 'active' if period == '30d' else '' }}" href="?period=30d">30 dní</a>
+    <a class="period {{ 'active' if period == 'all' else '' }}" href="?period=all">Celkem</a>
+  </div>
+</header>
+
+<div class="grid metrics routing-metrics">
+  <section><b>{{ total_completed }}</b><span>dokončených úloh</span></section>
+  <section><b>{{ providers|length }}</b><span>providerů v provozu</span></section>
+  <section><b>${{ '%.6f'|format(total_cost) }}</b><span>náklad období</span></section>
+  <section><b>{{ fallback_count }}</b><span>historických úloh s více pokusy</span></section>
+  <section><b>{{ failed_attempts }}</b><span>selhaných pokusů</span></section>
+</div>
+
+<section class="panel">
+  <div class="panelhead"><div><h2>Provider mix</h2><p>Skutečné dokončené úlohy ve vybraném období.</p></div></div>
+  {% if providers %}
+    <div class="provider-bars">
+      {% for p in providers %}
+      <div class="provider-row">
+        <div class="provider-head"><strong>{{ p.provider }}</strong><span>{{ p.count }} úloh · {{ '%.1f'|format(p.share) }} %</span></div>
+        <div class="bar"><span style="width: {{ p.share }}%"></span></div>
+        <div class="provider-meta">
+          <span>{{ p.models_text }}</span>
+          <span>{{ p.input_tokens }} in / {{ p.output_tokens }} out</span>
+          <span>{{ p.avg_latency }} ms avg</span>
+          <span>${{ '%.6f'|format(p.cost) }} · {{ '%.1f'|format(p.cost_share) }} % nákladů</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}<p>Zatím nejsou dokončené úlohy v tomto období.</p>{% endif %}
+</section>
+
+<section class="panel">
+  <div class="panelhead"><div><h2>Typ úlohy × provider</h2><p>Jak Engine reálně rozděluje jednotlivé typy práce.</p></div></div>
+  <table class="matrix"><thead><tr><th>Typ</th>{% for provider in provider_names %}<th>{{ provider }}</th>{% endfor %}<th>Celkem</th></tr></thead>
+  <tbody>
+  {% for task in ['general','chat','analysis','marketing','seo','coding'] %}
+    {% set ns = namespace(total=0) %}
+    <tr><td><strong>{{ task }}</strong></td>
+    {% for provider in provider_names %}{% set value = matrix.get(task, {}).get(provider, 0) %}{% set ns.total = ns.total + value %}<td>{{ value if value else '—' }}</td>{% endfor %}
+    <td><strong>{{ ns.total }}</strong></td></tr>
+  {% endfor %}
+  </tbody></table>
+</section>
+
+<section class="panel">
+  <div class="panelhead"><div><h2>Aktuální routing mapa</h2><p>Orientační první volba podle dnešní konfigurace. Skutečný výběr může změnit délka promptu, rozpočet nebo dostupnost API.</p></div></div>
+  <table><thead><tr><th>Typ úlohy</th><th>Auto</th><th>Economy</th><th>Balanced</th><th>Best</th></tr></thead><tbody>
+  {% for row in routing_preview %}
+    <tr><td><strong>{{ row.task }}</strong></td>
+      {% for quality in ['auto','economy','balanced','best'] %}
+        {% set cell = row.cells[quality] %}
+        <td>{% if cell %}<strong>{{ cell.provider }}</strong><small>{{ cell.route }} · {{ cell.model }}</small><small>pořadí {{ cell.score }}{% if cell.estimated_cost is not none %} · est. ${{ '%.6f'|format(cell.estimated_cost) }}{% endif %}</small>{% else %}—{% endif %}</td>
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody></table>
+</section>
+
+<div class="grid two">
+<section class="panel">
+  <div class="panelhead"><h2>Route / model</h2></div>
+  <table><thead><tr><th>Route</th><th>Provider/model</th><th>Úlohy</th><th>Podíl</th><th>Náklad</th></tr></thead><tbody>
+  {% for r in routes %}<tr><td>{{ r.route }}</td><td>{{ r.provider }}<small>{{ r.model }}</small></td><td>{{ r.count }}</td><td>{{ '%.1f'|format(r.share) }} %</td><td>${{ '%.6f'|format(r.cost) }}</td></tr>{% else %}<tr><td colspan="5">Bez dat.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<section class="panel">
+  <div class="panelhead"><h2>Zdroje požadavků</h2></div>
+  <table><thead><tr><th>Zdroj</th><th>Úlohy</th><th>Podíl</th></tr></thead><tbody>
+  {% for s in sources %}<tr><td>{{ s.source }}</td><td>{{ s.count }}</td><td>{{ '%.1f'|format(s.share) }} %</td></tr>{% else %}<tr><td colspan="3">Bez dat.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+</div>
+
+<section class="panel">
+  <div class="panelhead"><h2>Typy úloh</h2></div>
+  <table><thead><tr><th>Typ</th><th>Úlohy</th><th>Podíl</th><th>Avg. latence</th><th>Náklad</th></tr></thead><tbody>
+  {% for t in tasks %}<tr><td>{{ t.task }}</td><td>{{ t.count }}</td><td>{{ '%.1f'|format(t.share) }} %</td><td>{{ t.avg_latency }} ms</td><td>${{ '%.6f'|format(t.cost) }}</td></tr>{% else %}<tr><td colspan="5">Bez dat.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endblock %}

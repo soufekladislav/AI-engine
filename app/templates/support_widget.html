@@ -1,0 +1,32 @@
+<details class="support-widget" id="fresh-support-widget">
+  <summary aria-label="Otevřít technickou podporu"><span class="support-bubble" aria-hidden="true">?</span><span>Potřebuješ pomoct?</span></summary>
+  <section class="support-panel" aria-label="Technická podpora Fresh AI Engine">
+    <div class="support-heading"><div><strong>Jak ti můžeme pomoct?</strong><p>Napiš nám, ozveme se ti na e-mail.</p></div><button type="button" class="support-close" aria-label="Zavřít podporu" onclick="document.getElementById('fresh-support-widget').open=false">×</button></div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}<div class="support-feedback {{ 'support-ok' if category == 'success' else 'support-error' }}" role="status">{{ msg }}</div>{% endfor %}
+    {% endwith %}
+    <form action="/account/support" method="post" class="support-form">
+      <input type="hidden" name="support_csrf" value="{{ support_form.csrf }}">
+      <input type="hidden" name="return_to" value="{{ request.path }}">
+      <div class="support-honeypot" aria-hidden="true"><label>Web<input type="text" name="support_site" tabindex="-1" autocomplete="off"></label></div>
+      <label>Jméno <input name="support_name" maxlength="100" autocomplete="name" placeholder="Jak ti máme říkat?"></label>
+      <label>E-mail <input name="support_email" type="email" maxlength="190" autocomplete="email" value="{{ support_user_email }}" placeholder="tvuj@email.cz" required></label>
+      <label>S čím potřebuješ pomoct? <select name="support_topic" required><option value="" selected disabled>Vyber téma</option><option>Účet a přihlášení</option><option>Kredity a objednávky</option><option>Připojení aplikace</option><option>Jiný dotaz</option></select></label>
+      <label>Tvá zpráva <textarea name="support_message" rows="4" minlength="10" maxlength="4000" placeholder="Popiš nám, co se stalo…" required></textarea></label>
+      <label>Ověření: kolik je {{ support_form.question }} <input name="support_answer" type="number" inputmode="numeric" required aria-label="Výsledek početního příkladu"></label>
+      {% if support_form.turnstile_site_key %}<div class="cf-turnstile" data-sitekey="{{ support_form.turnstile_site_key }}"></div>{% endif %}
+      <label class="support-privacy"><input type="checkbox" name="support_privacy" required><span>Seznámil/a jsem se se <a href="https://www.freshcrackers.cz/ochrana-osobnich-udaju/" target="_blank" rel="noopener noreferrer">zásadami ochrany osobních údajů</a>.</span></label>
+      <button type="submit" class="support-send">Odeslat zprávu</button>
+      <p class="support-foot">Technická podpora Fresh AI Engine</p>
+    </form>
+  </section>
+</details>
+{% if support_form.turnstile_site_key %}<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{% endif %}
+<script>
+(function () {
+  const widget = document.getElementById('fresh-support-widget');
+  if (!widget) return;
+  if (new URLSearchParams(location.search).get('support') === 'open') widget.open = true;
+  document.addEventListener('keydown', event => {if(event.key === 'Escape') widget.open = false;});
+})();
+</script>

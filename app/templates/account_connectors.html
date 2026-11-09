@@ -1,0 +1,31 @@
+{% extends "account_base.html" %}
+{% block title %}Konektory · Fresh AI Engine{% endblock %}
+{% block content %}
+<header><div><h1>Konektory</h1><p>Každé připojení má vlastní klíč a může mít omezenou dobu platnosti.</p></div></header>
+{% if error %}<div class="notice warn">{% if error=='validity' %}Zkontroluj nastavení platnosti konektoru.{% elif error=='name' %}Doplň název konektoru.{% else %}Požadavek se nepodařilo dokončit.{% endif %}</div>{% endif %}
+{% if notice %}<div class="notice">{% if notice=='deleted' %}Konektor byl odstraněn a původní klíč už nefunguje.{% else %}Změny konektoru byly uloženy.{% endif %}</div>{% endif %}
+{% if new_key %}<div class="notice warn"><strong>Nový klíč zobrazujeme pouze nyní.</strong><p>Ulož si ho do připojované aplikace. Později už celý klíč nepůjde zobrazit.</p><input class="share-url mono" value="{{ new_key }}" readonly onclick="this.select()"></div>{% endif %}
+<section class="panel"><h2>Přidat aplikaci</h2>
+<form method="post" action="/account/connectors" class="model-form connector-form" style="margin-top:14px">
+<label>Název aplikace<input name="name" maxlength="120" required placeholder="např. Můj e-shop"></label>
+<label>Platnost<select name="validity" class="connector-validity"><option value="permanent">Trvale</option><option value="1d">1 den</option><option value="30d">30 dní</option><option value="custom">Vlastní datum</option></select></label>
+<label class="connector-custom-date">Vlastní datum platnosti<input type="date" name="expires_on"></label>
+<button type="submit">Vytvořit konektor</button></form></section>
+<section class="panel" style="margin-top:18px"><h2>Moje konektory</h2>
+<div class="customer-table-wrap"><table><thead><tr><th>Aplikace</th><th>Vlastník</th><th>Klíč</th><th>Platnost</th><th>Stav</th><th>Správa</th></tr></thead><tbody>
+{% for c in connectors %}<tr><td><strong>{{ c.name }}</strong><small>Vytvořen {{ c.created_at.strftime('%d.%m.%Y') if c.created_at else '—' }}</small></td><td>{{ account.email }}</td><td class="mono">{{ c.key_prefix }}••••••</td><td>{{ connector_validity_label(c) }}</td><td>{{ connector_status_label(c) }}</td><td>
+<details><summary class="button-link secondary-button">Upravit</summary><form class="stack connector-edit" method="post" action="/account/connectors/{{ c.id }}/update" style="margin-top:12px">
+<label>Název<input name="name" maxlength="120" value="{{ c.name }}" required></label>
+<label>Platnost<select name="validity" class="connector-validity"><option value="permanent" {% if not c.expires_at %}selected{% endif %}>Trvale</option><option value="1d">Prodloužit o 1 den</option><option value="30d">Prodloužit o 30 dní</option><option value="custom" {% if c.expires_at %}selected{% endif %}>Vlastní datum</option></select></label>
+<label class="connector-custom-date">Vlastní datum platnosti<input type="date" name="expires_on" value="{{ c.expires_at.strftime('%Y-%m-%d') if c.expires_at else '' }}"></label>
+<label class="check"><input type="checkbox" name="active" {% if c.active %}checked{% endif %}> Konektor je aktivní</label><button type="submit">Uložit změny</button></form></details>
+<div class="action-row" style="margin-top:8px"><form method="post" action="/account/connectors/{{ c.id }}/rotate"><button type="submit" class="secondary-button">Nový klíč</button></form><form method="post" action="/account/connectors/{{ c.id }}/delete" onsubmit="return confirm('Odstranit konektor? Původní klíč okamžitě přestane fungovat. Historie spotřeby zůstane zachována.');"><button type="submit" class="danger">Odstranit</button></form></div>
+</td></tr>{% else %}<tr><td colspan="6">Zatím nemáš žádný konektor.</td></tr>{% endfor %}</tbody></table></div></section>
+<script>
+document.querySelectorAll('.connector-form,.connector-edit').forEach(function(form){
+  const select=form.querySelector('.connector-validity'); const wrap=form.querySelector('.connector-custom-date'); const input=wrap && wrap.querySelector('input');
+  function sync(){ const custom=select && select.value==='custom'; if(wrap) wrap.style.display=custom?'block':'none'; if(input) input.required=!!custom; }
+  if(select){select.addEventListener('change',sync);sync();}
+});
+</script>
+{% endblock %}

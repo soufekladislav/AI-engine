@@ -1,0 +1,61 @@
+{% extends "account_base.html" %}
+{% block title %}Můj účet · Fresh AI Engine{% endblock %}
+{% block content %}
+<header class="customer-header"><div><h1>Můj účet</h1><p>{{ account.email }}{% if fresh_identity %} · Propojeno s Fresh Crackers{% endif %}</p></div></header>
+{% if existing_notice %}<div class="notice" role="status">Tvůj účet Fresh Crackers je nyní propojený s Fresh AI Engine.</div>{% endif %}
+<div class="grid account-metrics metrics metric-links">
+  <a class="metric-link" href="/account/costs"><b>{{ '%.2f'|format(balance) }}</b><span>Dostupné kredity</span><small>≈ {{ '%.2f'|format(balance*credit_price) }} Kč · zobrazit provoz →</small></a>
+  <a class="metric-link" href="/account/connectors"><b>{{ connectors|length }}</b><span>Připojené aplikace</span><small>Spravovat konektory →</small></a>
+  <a class="metric-link" href="#orders"><b>{{ remote_orders|length if fresh_identity else orders|length }}</b><span>Objednávky této aplikace</span><small>Přejít na objednávky ↓</small></a>
+</div>
+<div class="grid account-columns">
+  <section class="panel billing-panel">
+    <h2>Fakturační údaje</h2>
+    {% if fresh_identity and remote_profile %}
+    {% set b=remote_profile.billing or {} %}
+    <div class="billing-summary">
+      <div class="billing-person"><strong>{{ b.company or b.name or account.billing_name or account.email }}</strong>{% if b.company and b.name %}<span>{{ b.name }}</span>{% endif %}</div>
+      <address>
+        {% if b.address_1 %}<span>{{ b.address_1 }}</span>{% endif %}
+        {% if b.address_2 %}<span>{{ b.address_2 }}</span>{% endif %}
+        {% if b.postcode or b.city %}<span>{{ b.postcode }} {{ b.city }}</span>{% endif %}
+        {% if b.country %}<span>{{ b.country }}</span>{% endif %}
+      </address>
+      {% if b.ico or b.dic %}<div class="billing-meta">{% if b.ico %}<span>IČO: {{ b.ico }}</span>{% endif %}{% if b.dic %}<span>DIČ: {{ b.dic }}</span>{% endif %}</div>{% endif %}
+      {% if b.email or b.phone %}<div class="billing-meta">{% if b.email %}<span>{{ b.email }}</span>{% endif %}{% if b.phone %}<span>{{ b.phone }}</span>{% endif %}</div>{% endif %}
+    </div>
+    <p class="customer-help">Fakturační údaje upravíš ve svém účtu Fresh Crackers. Změny se zde automaticky projeví při dalším načtení stránky.</p>
+    <div class="customer-actions"><a class="button secondary" href="https://www.freshcrackers.cz/muj-ucet/edit-address/" target="_blank" rel="noopener noreferrer">Upravit fakturační údaje ↗</a><a href="https://www.freshcrackers.cz/ochrana-osobnich-udaju/" target="_blank" rel="noopener noreferrer">Ochrana osobních údajů ↗</a></div>
+    {% elif fresh_identity %}
+      <p>Fakturační údaje se nyní nepodařilo načíst. Můžeš je zkontrolovat ve svém účtu Fresh Crackers.</p>
+      <div class="customer-actions"><a class="button secondary" href="https://www.freshcrackers.cz/muj-ucet/edit-address/" target="_blank" rel="noopener noreferrer">Otevřít fakturační údaje ↗</a></div>
+    {% else %}
+      <p class="customer-help">Vyplň údaje, které chceš používat při objednávání služeb.</p>
+      <form method="post" action="/account/profile" class="stack"><label>Firma<input name="company_name" value="{{ account.company_name }}"></label><label>Fakturační jméno<input name="billing_name" value="{{ account.billing_name }}"></label><label>IČO<input name="billing_ico" value="{{ account.billing_ico }}"></label><label>DIČ<input name="billing_dic" value="{{ account.billing_dic }}"></label><label>Adresa<textarea name="billing_address" rows="4">{{ account.billing_address }}</textarea></label><button type="submit">Uložit údaje</button></form>
+      <p class="customer-help"><a href="https://www.freshcrackers.cz/ochrana-osobnich-udaju/" target="_blank" rel="noopener noreferrer">Ochrana osobních údajů ↗</a></p>
+    {% endif %}
+  </section>
+  <section class="panel credit-panel">
+    <h2>Dokoupit kredity</h2>
+    {% if fresh_identity and fresh_enabled %}
+      <p class="customer-help">Vyber si počet kreditů. Nejmenší balíček je <strong>1 000 kreditů za 100 Kč</strong>. Objednávku dokončíš v e-shopu Fresh Crackers, kde si také zkontroluješ fakturační údaje a zvolíš způsob platby.</p>
+      {% if request.args.get('credit_error')=='minimum' %}<div class="notice warn">Nejmenší objednávka je 1 000 kreditů.</div>{% elif request.args.get('credit_error')=='checkout' %}<div class="notice warn">Pokladnu se nepodařilo připravit. Zkus to prosím znovu.</div>{% endif %}
+      <form method="post" action="/account/credits/order" target="_blank" rel="noopener" class="stack credit-order-form" id="credit-order-form">
+        <label>Počet kreditů<input id="credits-input" type="number" min="1000" step="1" name="credits" value="1000" required></label>
+        <p class="credit-price-preview">Cena objednávky: <strong id="credit-price">100,00 Kč</strong></p>
+        <button type="submit">Pokračovat do e-shopu Fresh Crackers ↗</button>
+      </form>
+      <script>(function(){const i=document.getElementById('credits-input'),o=document.getElementById('credit-price');if(!i||!o)return;function update(){const n=Math.max(0,parseInt(i.value||'0',10));o.textContent=(n*.1).toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})+' Kč'}i.addEventListener('input',update);update()})();</script>
+    {% else %}<p class="customer-help">Pro nákup kreditů si nejprve propoj svůj účet s Fresh Crackers.</p><a class="button secondary" href="/account/login/fresh">Propojit účet Fresh Crackers</a>{% endif %}
+    <h3>Poslední čerpání a dobití</h3><p class="customer-help">Jen poslední pohyby; úplný provoz a připsané kredity najdeš v <a href="/account/costs#credit-movements">Spotřeba & provoz →</a>.</p>
+    <div class="customer-table-wrap"><table><thead><tr><th>Datum</th><th>Typ</th><th>Kredity</th></tr></thead><tbody>{% for e in ledger %}<tr><td>{{ e.created_at|prague_time('%d.%m.%Y %H:%M') }}</td><td>{{ e.entry_type|customer_ledger_type }}{% if e.note %}<small>{{ e.note|customer_ledger_note }}</small>{% endif %}</td><td class="num">{{ '%+.2f'|format(e.delta_credits) }}</td></tr>{% else %}<tr><td colspan="3">Zatím tu nejsou žádné pohyby.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+</div>
+<section class="panel account-orders" id="orders"><h2>Moje objednávky</h2>
+  <p class="customer-help">Zde najdeš pouze objednávky spojené s Fresh AI Engine. Ostatní nákupy máš přehledně ve svém účtu Fresh Crackers.</p>
+  {% if fresh_identity %}
+    <div class="customer-table-wrap"><table><thead><tr><th>Objednávka</th><th>Datum</th><th>Produkt</th><th>Částka</th><th>Stav</th></tr></thead><tbody>{% for o in remote_orders[:5] %}<tr><td>#{{ o.number or o.id }}</td><td>{{ o.date_created or '—' }}</td><td>{{ o.product_name or 'Kredity Fresh AI Engine' }}</td><td>{{ o.total }} {{ o.currency }}</td><td>{{ (o.status or '')|customer_order_status }}</td></tr>{% else %}<tr><td colspan="5">Zatím nemáš žádnou objednávku.</td></tr>{% endfor %}</tbody></table></div>{% if remote_orders|length > 5 %}<p class="customer-help"><a href="https://www.freshcrackers.cz/muj-ucet/orders/" target="_blank" rel="noopener noreferrer">Zobrazit všechny objednávky ve Fresh Crackers ↗</a></p>{% endif %}
+  {% else %}<p>Po propojení účtu s Fresh Crackers uvidíš na tomto místě své objednávky.</p>{% endif %}
+</section>
+<section class="panel danger-zone"><h2>Smazat účet Fresh AI Engine</h2><p class="customer-help">Smazáním účtu přijdeš o nastavení, uložená data a přístupové klíče této aplikace. Nevyčerpané kredity budou odečteny. Tvůj účet Fresh Crackers a objednávky u něj zůstanou zachované.</p>{% if request.args.get('delete_error') %}<div class="notice warn">Pro potvrzení napiš přesně SMAZAT.</div>{% endif %}<form method="post" action="/account/delete" class="stack"><label>Pro potvrzení napiš SMAZAT<input name="confirm" autocomplete="off" required></label><button class="danger" type="submit">Smazat účet Fresh AI Engine</button></form></section>
+{% endblock %}

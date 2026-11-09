@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Test · Fresh AI Engine{% endblock %}
+{% block content %}
+<header>
+  <div>
+    <h1>Test úlohy</h1>
+    <p>Otestuj typ úlohy, automatický routing nebo konkrétní route bez ručního vypínání modelů.</p>
+  </div>
+</header>
+<div class="notice warn"><strong>Pozor:</strong> tlačítko níže provede skutečné provider API volání. Náklad se eviduje pod zdrojem <code>admin-console</code> jako interní provoz a není rozpočítán do zákaznických účtů.</div>
+{% if created %}
+<div class="notice">
+  Úloha dokončena: <a href="/admin/jobs/{{ created.id }}">{{ created.id }}</a>
+  {% if created.selected_route_code %} · route <strong>{{ created.selected_route_code }}</strong>{% endif %}
+</div>
+{% endif %}
+<section class="panel narrow">
+  <form method="post" action="/admin/test" class="stack">
+    <label>Typ úlohy
+      <select name="task_type">
+        <option value="" {% if not form_values.task_type %}selected{% endif %}>Automaticky dle rozpoznávacích pravidel</option>
+        {% for item in task_types %}
+        <option value="{{ item }}" {% if form_values.task_type == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Operace (volitelně)
+      <input name="operation" value="{{ form_values.operation or '' }}" placeholder="např. seo.metadata.optimize" pattern="[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*">
+      <small>Konkrétní akce volající aplikace. Router 2.0 ji používá pro přesnější profil náročnosti a vhodnosti modelů.</small>
+    </label>
+
+    <label>Kvalita
+      <select name="quality">
+        {% for item in qualities %}
+        <option value="{{ item }}" {% if form_values.quality == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Route pro diagnostiku
+      <select name="force_route">
+        <option value="">Automaticky · rozhodne router</option>
+        {% for route in routes %}
+        <option value="{{ route.code }}" {% if form_values.force_route == route.code %}selected{% endif %}>
+          {{ route.code }} · {{ route.provider }} / {{ route.model_name }}{% if not availability.get(route.provider, False) %} · bez API{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      <small>Vynucení route je pouze diagnostika. Produkční volání nechávej na „Automaticky“.</small>
+    </label>
+
+    <label>Zadání
+      <textarea name="prompt" rows="10" required>{{ form_values.prompt }}</textarea>
+    </label>
+
+    <button>Odeslat do Engine</button>
+  </form>
+</section>
+{% endblock %}

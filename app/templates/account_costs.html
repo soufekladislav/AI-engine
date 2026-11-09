@@ -1,0 +1,19 @@
+{% extends "account_base.html" %}
+{% block title %}Spotřeba & provoz · Fresh AI Engine{% endblock %}
+{% block content %}
+<header><div><h1>Spotřeba & provoz</h1><p>Přehled čerpání kreditů, jejich hodnoty v Kč a posledních AI požadavků.</p></div></header>
+<div class="grid metrics account-cost-metrics">
+  <section><b>{{ '%.2f'|format(balance) }}</b><span>Zůstatek kreditů</span><small>≈ {{ '%.2f'|format(balance_czk) }} Kč nominálně</small></section>
+  <section><b>{{ '%.2f'|format(spent_credits) }}</b><span>Celkem spotřebováno</span><small>≈ {{ '%.2f'|format(spent_czk) }} Kč nominálně</small></section>
+  <section><b>{{ total_jobs }}</b><span>Dokončené požadavky</span><small>V detailu zobrazujeme max. 20 posledních</small></section>
+</div>
+
+<section class="panel"><div class="panelhead"><div><h2>Souhrn aplikací</h2><p>Kliknutím na aplikaci vyfiltruješ její poslední úlohy.</p></div>{% if connector_filter %}<a href="/account/costs#jobs">Zobrazit všechny →</a>{% endif %}</div>
+<div class="customer-table-wrap"><table><thead><tr><th>Aplikace</th><th>Požadavky</th><th>Tokeny in / out</th><th>Spotřeba kreditů</th><th>Hodnota v Kč</th></tr></thead><tbody>{% for r in summary %}<tr class="{{ 'selected-row' if connector_filter==r.id else '' }}"><td><a href="/account/costs?connector={{ r.id }}#jobs"><strong>{{ r.name }}</strong> ↗</a></td><td>{{ r.jobs }}</td><td>{{ r.input_tokens }} / {{ r.output_tokens }}</td><td>{{ '%.4f'|format(r.credits) }}</td><td>{{ '%.2f'|format(r.value_czk) }} Kč</td></tr>{% else %}<tr><td colspan="5">Zatím žádný provoz.</td></tr>{% endfor %}</tbody></table></div></section>
+
+<section class="panel" id="jobs"><div class="panelhead"><div><h2>Poslední úlohy{% if connector_filter %} vybrané aplikace{% endif %}</h2><p>Maximálně 20 nejnovějších dokončených úloh. Technické rezervace se zde nezobrazují.</p></div></div>
+<div class="customer-table-wrap"><table><thead><tr><th>Datum</th><th>Aplikace / projekt</th><th>Model</th><th>Tokeny in / out</th><th>Kredity</th><th>Hodnota Kč</th></tr></thead><tbody>{% for bill,job,connector in rows %}{% set unit=(bill.credit_unit_price_czk if bill.credit_unit_price_czk is not none else credit_price) %}<tr><td>{{ job.created_at|prague_time }}</td><td>{{ connector.name }}<small>{{ job.project_id or 'Bez projektu' }}</small></td><td>{{ job.provider or '—' }}<small>{{ job.model_name or '' }}</small></td><td>{{ job.input_tokens }} / {{ job.output_tokens }}</td><td>{{ '%.4f'|format(bill.credits_charged or 0) }}</td><td>{{ '%.2f'|format((bill.credits_charged or 0)*unit) }} Kč</td></tr>{% else %}<tr><td colspan="6">Žádné dokončené požadavky v tomto filtru.</td></tr>{% endfor %}</tbody></table></div></section>
+
+<section class="panel" id="credit-movements"><h2>Čerpání a připsané kredity</h2><p class="customer-help">Zobrazují se skutečné pohyby: dobití, vrácení a zaúčtované AI čerpání. Rezervace a jejich technické vyrovnání jsou skryté.</p>
+<div class="customer-table-wrap"><table><thead><tr><th>Datum</th><th>Typ</th><th>Kredity</th><th>Přibližná hodnota</th></tr></thead><tbody>{% for e in activity %}<tr><td>{{ e.created_at|prague_time('%d.%m.%Y %H:%M') }}</td><td>{{ e.entry_type|customer_ledger_type }}{% if e.note %}<small>{{ e.note|customer_ledger_note }}</small>{% endif %}</td><td class="num">{{ '%+.2f'|format(e.delta_credits) }}</td><td>{{ '%+.2f'|format(e.delta_credits*credit_price) }} Kč</td></tr>{% else %}<tr><td colspan="4">Zatím tu nejsou žádné pohyby.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

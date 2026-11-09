@@ -1,0 +1,190 @@
+{% extends "account_base.html" %}
+{% block title %}Propojení · Fresh Key{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Fresh Key</span>
+    <h1>Propojení</h1>
+    <p>Jeden řádek = jeden společný projekt napříč Fresh aplikacemi. Pracovní data zůstávají vždy v Lindě, Bobanovi, Edovi, Karlovi a dalších aplikacích.</p>
+  </div>
+</div>
+
+<div class="fk-info"><strong>Fresh Key je zdarma a nevyžaduje kredity.</strong> Slouží jen ke spojení projektů, lidí a společných konektorů.</div>
+
+{% if notice %}<div class="notice success">
+  {% if notice == 'request_sent' %}Návrh byl odeslán do cílové aplikace a čeká na potvrzení.
+  {% elif notice == 'merged' %}Propojení byla sloučena. Lokální projekty ani jejich pracovní data se nezměnily.
+  {% elif notice == 'detached' %}Aplikace byla z Propojení odpojena. Lokální projekt zůstal zachovaný.
+  {% elif notice == 'attached' %}Projekt byl připojen k existujícímu Propojení.
+  {% elif notice == 'linked' %}Bylo vytvořeno nové Propojení.
+  {% elif notice == 'disconnected' %}Externí konektor byl odpojen.
+  {% else %}Změna byla uložena.{% endif %}
+</div>{% endif %}
+{% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+
+{% if merge_suggestions %}
+<section class="card fk-repair">
+  <div><h2>Doporučená oprava</h2><p class="muted">Fresh Key našel projekty se stejnou webovou adresou, které jsou vedené ve více Propojeních.</p></div>
+  {% for item in merge_suggestions %}
+  <div class="fk-repair-row">
+    <div><strong>{{ item.target.name }}</strong> + <strong>{{ item.source.name }}</strong><small>{{ item.url_key }} · {{ item.target.bindings|map(attribute='app_label')|join(' · ') }} + {{ item.source.bindings|map(attribute='app_label')|join(' · ') }}</small></div>
+    <form method="post" action="/account/fresh-key/links/{{ item.target.id }}/merge" onsubmit="return confirm('Sloučit tato dvě Propojení? Lokální projekty se nesmažou.');">
+      <input type="hidden" name="source_link_id" value="{{ item.source.id }}">
+      <button type="submit">Sloučit</button>
+    </form>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="card">
+  <div class="fk-title"><div><h2>Propojené projekty</h2><p class="muted">Název projektu se může v jednotlivých aplikacích lišit.</p></div><span class="badge">{{ links|length }}</span></div>
+  <div class="fk-list">
+  {% for p in links %}
+    {% set pending = p.link_requests|selectattr('status','equalto','pending')|list %}
+    <details class="fk-row" {% if p.id == selected_link_id %}open{% endif %}>
+      <summary>
+        <span class="fk-name"><strong>{{ p.name }}</strong><small>{{ p.website_url or p.organization_name or 'Bez webové adresy' }}</small></span>
+        <span class="fk-apps">{% for b in p.applications %}<span class="badge">{{ b.app_label }}</span>{% else %}<span class="badge">bez aplikace</span>{% endfor %}{% if pending %}<span class="badge pending">{{ pending|length }} čeká</span>{% endif %}</span>
+        <span class="fk-people"><strong>{{ p.members|length }}</strong><small>lidí</small></span>
+        <span class="fk-chevron">⌄</span>
+      </summary>
+
+      <div class="fk-detail">
+        <div class="grid two">
+          <section>
+            <h3>Aplikace</h3>
+            <p class="muted">Každá aplikace vlastní svůj lokální projekt. Fresh Key drží pouze vazbu.</p>
+            <div class="fk-compact-list">
+              {% for b in p.applications %}
+              <div class="fk-compact-row">
+                <span><strong>{{ b.app_label }}</strong><small>{{ b.external_project_name or ('Projekt #' ~ b.external_project_id) }}</small></span>
+                {% if p.can_manage_connections %}
+                <form method="post" action="/account/fresh-key/links/{{ p.id }}/detach" onsubmit="return confirm('Odpojit {{ b.app_label }} z tohoto Propojení? Projekt v aplikaci zůstane zachovaný.');">
+                  <input type="hidden" name="app_code" value="{{ b.app_code }}"><input type="hidden" name="external_project_id" value="{{ b.external_project_id }}">
+                  <button type="submit" class="secondary">Odpojit</button>
+                </form>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+
+            {% if p.can_manage_connections and p.available_apps %}
+            <details class="fk-connect-app">
+              <summary class="buttonish">+ Připojit další App</summary>
+              <form method="post" action="/account/fresh-key/links/{{ p.id }}/requests" class="fk-request-form" data-fk-request-form>
+                <label>Aplikace
+                  <select name="target_app_code" required data-fk-app-select>
+                    <option value="">Vyber aplikaci…</option>
+                    {% for app in p.available_apps %}<option value="{{ app.code }}">{{ app.label }}</option>{% endfor %}
+                  </select>
+                </label>
+                <div class="fk-mode-row">
+                  <label><input type="radio" name="request_type" value="attach_existing" checked> Existující projekt</label>
+                  <label><input type="radio" name="request_type" value="create_new"> Nový projekt v aplikaci</label>
+                </div>
+                <div data-fk-existing>
+                  <label>Projekt v aplikaci
+                    <select name="target_local_project_id" data-fk-project-select>
+                      <option value="">Vyber projekt…</option>
+                      {% for app in p.available_apps %}
+                        {% for lp in app.projects %}
+                        <option value="{{ lp.id }}" data-app="{{ app.code }}" data-linked="{{ '1' if lp.linked else '0' }}">
+                          {{ lp.name }} · #{{ lp.external_project_id }}{% if lp.linked %} · už v „{{ lp.link_name }}“ → sloučit{% else %} · volný{% endif %}
+                        </option>
+                        {% endfor %}
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <p class="muted fk-hint">Volný projekt odešle návrh k potvrzení do cílové aplikace. Projekt, který už má vlastní Fresh Key, se po výběru sloučí s tímto Propojením.</p>
+                </div>
+                <div data-fk-new hidden>
+                  <label>Název nového projektu<input name="requested_project_name" placeholder="např. CajnaCars.cz"></label>
+                  <label>URL <small>(volitelné)</small><input name="requested_project_url" placeholder="https://…"></label>
+                  <p class="muted fk-hint">Projekt vytvoří až cílová aplikace po potvrzení návrhu.</p>
+                </div>
+                <label>Poznámka <small>(volitelné)</small><input name="message" placeholder="Co chceš propojit"></label>
+                <button type="submit">Pokračovat</button>
+              </form>
+            </details>
+            {% elif p.can_manage_connections %}<p class="muted">Pod tímto Fresh účtem zatím není další dostupná aplikace.</p>{% endif %}
+
+            {% if p.link_requests %}
+            <div class="fk-requests"><h4>Čekající návrhy</h4>
+              {% for r in p.link_requests if r.status == 'pending' %}
+              <div class="fk-request-row"><span><strong>{{ r.target_app_label }}</strong><small>{{ r.target_project_name or p.name }}</small></span><span class="badge pending">čeká</span></div>
+              {% endfor %}
+            </div>{% endif %}
+          </section>
+
+          <section>
+            <h3>Lidé</h3>
+            <p class="muted">Přehled napříč aplikacemi. Role a přístup se mění vždy v konkrétní aplikaci.</p>
+            <div class="fk-compact-list">
+            {% for m in p.members %}
+              <div class="fk-member-row"><span><strong>{{ m.display_name or m.email }}</strong><small>{{ m.email }}</small>{% if m.apps %}<span class="fk-member-apps">{% for a in m.apps %}<em>{{ a.label }} · {{ a.role_label }}</em>{% endfor %}</span>{% endif %}</span><span class="badge">{{ m.apps|length }} app</span></div>
+            {% else %}<p class="muted">Bez dalších lidí.</p>{% endfor %}
+            </div>
+          </section>
+        </div>
+
+        <div class="fk-connections">
+          <div><h3>Konektory</h3><p class="muted">Meta, LinkedIn a Google Business se sdílejí na úrovni tohoto Propojení.</p></div>
+          <div class="fk-provider-actions">{% for code,provider in providers.items() %}{% if provider.configured %}<form method="post" action="/account/fresh-key/links/{{ p.id }}/oauth/{{ code }}"><button type="submit" class="secondary">+ {{ provider.label }}</button></form>{% endif %}{% endfor %}</div>
+        </div>
+        {% if p.connections %}<div class="fk-compact-list">{% for c in p.connections %}<div class="fk-compact-row"><span><strong>{{ c.account_name }}</strong><small>{{ c.provider }} · {{ c.asset_type }} · {{ c.status }}</small></span><form method="post" action="/account/fresh-key/connections/{{ c.id }}/disconnect"><button class="secondary" type="submit">Odpojit</button></form></div>{% endfor %}</div>{% endif %}
+        <details class="fk-tech"><summary>Technické údaje</summary><small>Fresh Key ID: {{ p.id }}</small></details>
+      </div>
+    </details>
+  {% else %}<div class="empty">Zatím tu není žádné Propojení.</div>{% endfor %}
+  </div>
+</section>
+
+{% if unlinked_local_projects %}
+<section class="card">
+  <div class="fk-title"><div><h2>Čeká na přiřazení</h2><p class="muted">Tyto projekty aplikace Fresh Key zná, ale zatím nejsou součástí žádného společného Propojení.</p></div><span class="badge">{{ unlinked_local_projects|length }}</span></div>
+  <div class="fk-compact-list">
+  {% for lp in unlinked_local_projects %}
+    <div class="fk-unlinked {% if lp.id == selected_local_id %}selected{% endif %}">
+      <div class="fk-unlinked-main"><strong>{{ lp.name }}</strong><small>{{ lp.app_label }} · lokální ID {{ lp.external_project_id }}{% if lp.website_url %} · {{ lp.website_url }}{% endif %}</small></div>
+      <div class="fk-unlinked-actions">
+        {% if lp.candidate_links %}
+          {% for candidate in lp.candidate_links %}
+          <form method="post" action="/account/fresh-key/local-projects/{{ lp.id }}/resolve">
+            <input type="hidden" name="mode" value="attach"><input type="hidden" name="target_link_id" value="{{ candidate.id }}">
+            <button type="submit">Připojit k „{{ candidate.name }}“</button>
+          </form>
+          {% endfor %}
+          <form method="post" action="/account/fresh-key/local-projects/{{ lp.id }}/resolve" onsubmit="return confirm('Vytvořit samostatné Propojení i přes nalezenou shodu?');"><input type="hidden" name="mode" value="new"><button type="submit" class="secondary">Ponechat samostatně</button></form>
+        {% else %}
+          <form method="post" action="/account/fresh-key/local-projects/{{ lp.id }}/resolve"><input type="hidden" name="mode" value="new"><button type="submit">Vytvořit Propojení</button></form>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<style>
+.fk-info{margin:12px 0 18px;padding:11px 13px;border-radius:10px;background:#f4f8e8;color:#536500;font-size:12px}.fk-info strong{color:#394800}.fk-title{display:flex;justify-content:space-between;gap:12px;align-items:center}.fk-list{border-top:1px solid #e8ebe4}.fk-row{border-bottom:1px solid #e8ebe4}.fk-row>summary{list-style:none;display:grid;grid-template-columns:minmax(240px,1.35fr) minmax(220px,1fr) 70px 24px;gap:14px;align-items:center;padding:14px 4px;cursor:pointer}.fk-row>summary::-webkit-details-marker{display:none}.fk-name,.fk-people,.fk-member-row>span,.fk-compact-row>span,.fk-request-row>span,.fk-unlinked-main,.fk-repair-row>div{display:grid;gap:2px}.fk-name small,.fk-people small,.fk-compact-row small,.fk-member-row small,.fk-request-row small,.fk-unlinked small,.fk-repair-row small{color:#717970}.fk-apps{display:flex;gap:5px;flex-wrap:wrap}.fk-people{text-align:right}.fk-chevron{font-size:20px;transition:.2s}.fk-row[open] .fk-chevron{transform:rotate(180deg)}.fk-detail{padding:8px 4px 22px}.fk-compact-list{display:grid;border-top:1px solid #edf0e9;margin-top:10px}.fk-compact-row,.fk-member-row,.fk-request-row,.fk-repair-row,.fk-unlinked{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #edf0e9}.fk-member-row{align-items:flex-start}.fk-member-apps{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}.fk-member-apps em{font-style:normal;font-size:10px;background:#f0f2ed;border-radius:12px;padding:2px 7px}.fk-connect-app{margin-top:14px}.buttonish{display:inline-flex;padding:9px 12px;border-radius:9px;background:#111;color:#fff;font-weight:700;font-size:12px;cursor:pointer;list-style:none}.buttonish::-webkit-details-marker{display:none}.fk-request-form{display:grid;gap:10px;margin-top:12px;padding:14px;border:1px solid #e3e7de;border-radius:12px;background:#fbfcfa}.fk-mode-row{display:flex;gap:18px;flex-wrap:wrap}.fk-mode-row label{display:flex;align-items:center;gap:6px}.fk-mode-row input{width:auto}.fk-hint{font-size:10px;margin:5px 0 0}.badge.pending{background:#fff6db;color:#775500}.fk-connections{display:flex;justify-content:space-between;gap:14px;align-items:end;border-top:1px solid #e8ebe4;margin-top:18px;padding-top:15px}.fk-provider-actions,.fk-unlinked-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.fk-provider-actions form,.fk-unlinked-actions form,.fk-compact-row form,.fk-repair-row form{margin:0}.fk-tech{margin-top:12px;color:#777;font-size:11px}.fk-repair{border-color:#e8cf79}.fk-repair-row:last-child,.fk-unlinked:last-child{border-bottom:0}.fk-unlinked.selected{background:#fbfdea;margin:0 -10px;padding-left:10px;padding-right:10px;border-radius:8px}@media(max-width:820px){.fk-row>summary{grid-template-columns:1fr 24px}.fk-apps{grid-column:1}.fk-people{display:none}.fk-chevron{grid-column:2;grid-row:1}.fk-connections,.fk-unlinked,.fk-repair-row{align-items:flex-start;flex-direction:column}.fk-unlinked-actions{justify-content:flex-start}.grid.two{grid-template-columns:1fr}}
+</style>
+<script>
+document.querySelectorAll('[data-fk-request-form]').forEach(form=>{
+  const app=form.querySelector('[data-fk-app-select]'), projects=form.querySelector('[data-fk-project-select]');
+  const existing=form.querySelector('[data-fk-existing]'), newer=form.querySelector('[data-fk-new]');
+  const radios=form.querySelectorAll('input[name="request_type"]');
+  const refreshProjects=()=>{const code=app.value; [...projects.options].forEach((o,i)=>{if(i===0)return;o.hidden=!!code&&o.dataset.app!==code;});if(projects.selectedOptions[0]?.hidden)projects.value='';};
+  const refreshMode=()=>{const mode=form.querySelector('input[name="request_type"]:checked')?.value;existing.hidden=mode!=='attach_existing';newer.hidden=mode!=='create_new';};
+  app.addEventListener('change',refreshProjects);radios.forEach(r=>r.addEventListener('change',refreshMode));refreshProjects();refreshMode();
+  form.addEventListener('submit',ev=>{
+    const mode=form.querySelector('input[name="request_type"]:checked')?.value;
+    const selected=projects.selectedOptions[0];
+    if(mode==='attach_existing' && selected?.dataset.linked==='1'){
+      if(!confirm('Tento projekt už patří do jiného Propojení. Chceš obě Propojení sloučit? Lokální projekty se nesmažou.')){ev.preventDefault();return;}
+      let hidden=form.querySelector('input[name="confirm_merge"]'); if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.name='confirm_merge';form.appendChild(hidden);} hidden.value='1';
+    }
+  });
+});
+</script>
+{% endblock %}

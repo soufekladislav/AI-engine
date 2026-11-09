@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Procesy · Fresh AI Engine{% endblock %}
+{% block content %}<header><div><h1>Procesy</h1><p>Posledních 200 požadavků na Engine.</p></div></header>
+<section class="panel"><table><thead><tr><th>Čas (Praha)</th><th>Zdroj / projekt</th><th>Schopnost / operace</th><th>Preview</th><th>Stav</th><th>Provider / model</th><th>Tokeny</th><th></th></tr></thead><tbody>
+{% for j in jobs %}<tr><td>{{ j.created_at|prague_time('%d.%m. %H:%M:%S') }}</td><td>{{ j.source }}<small>{{ j.project_id or '' }}</small></td><td>{{ j.task_type }}<small>{{ j.operation or '' }}</small></td><td class="preview">{{ j.prompt_preview }}</td><td><span class="status {{ j.status }}">{{ j.status }}</span></td><td>{{ j.provider or '—' }}<small>{{ j.model_name or '' }}</small></td><td>{{ j.input_tokens }} / {{ j.output_tokens }}</td><td><a href="/admin/jobs/{{ j.id }}">Detail</a>{% if j.status == 'queued' %}<form class="inline" method="post" action="/admin/jobs/{{ j.id }}/cancel"><button class="linkbtn">Zrušit</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></section>{% endblock %}

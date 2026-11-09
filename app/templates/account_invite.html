@@ -1,0 +1,4 @@
+{% extends "account_base.html" %}{% block title %}Aktivace účtu · Fresh AI Engine{% endblock %}{% block content %}
+<div class="auth-wrap"><section class="panel auth-card"><h1>Aktivace účtu</h1><p>Vytvoř si heslo a potvrď svůj zákaznický účet Fresh AI Engine.</p>{% if error %}<div class="notice warn">{{ error }}</div>{% endif %}
+{% if token %}<form class="stack" method="post" action="/account/invite" style="margin-top:20px"><input type="hidden" name="token" value="{{ token }}"><label>Nové heslo<input name="password" type="password" minlength="10" required autocomplete="new-password"></label><label>Potvrzení hesla<input name="password_confirm" type="password" minlength="10" required autocomplete="new-password"></label><button type="submit">Nastavit heslo a aktivovat účet</button></form>{% else %}<a href="/account/login">Přejít na přihlášení</a>{% endif %}</section></div>
+{% endblock %}

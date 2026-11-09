@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Náklady & provoz · Fresh AI Engine{% endblock %}
+{% block content %}
+<header class="costs-head"><div><h1>Náklady & provoz</h1><p>Jedno místo pro náklady providerů, aplikace, projekty, uživatele a časové období.</p></div><a href="/admin/routing-analytics">Rozdělení provozu →</a></header>
+
+<form method="get" action="/admin/costs" class="panel cost-filters cost-filters-v2">
+  <label>Období
+    <select name="period" id="period-select">
+      <option value="24h" {{ 'selected' if period=='24h' else '' }}>24 hodin</option>
+      <option value="7d" {{ 'selected' if period=='7d' else '' }}>7 dní</option>
+      <option value="30d" {{ 'selected' if period=='30d' else '' }}>30 dní</option>
+      <option value="all" {{ 'selected' if period=='all' else '' }}>Celé období</option>
+      <option value="custom" {{ 'selected' if period=='custom' else '' }}>Vlastní období</option>
+    </select>
+  </label>
+  <label>Od<input type="date" name="date_from" value="{{ date_from }}"></label>
+  <label>Do<input type="date" name="date_to" value="{{ date_to }}"></label>
+  <label>Aplikace<select name="source"><option value="">Všechny</option>{% for name in sources %}<option value="{{ name }}" {{ 'selected' if source==name else '' }}>{{ 'Interní testy administrace' if name=='admin-console' else (name or '(bez zdroje)') }}</option>{% endfor %}</select></label>
+  <label>Projekt<select name="project"><option value="">Všechny projekty</option><option value="__missing__" {{ 'selected' if project=='' else '' }}>Bez projektu</option>{% for name in projects %}<option value="{{ name }}" {{ 'selected' if project==name else '' }}>{{ name }}</option>{% endfor %}</select></label>
+  <label>Uživatel<select name="user_id"><option value="">Všichni uživatelé</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if user_id==u.id else '' }}>{{ u.label }}</option>{% endfor %}</select></label>
+  <label>Provider<select name="provider"><option value="">Všechny platformy</option>{% for name in providers_filter %}<option value="{{ name }}" {{ 'selected' if provider==name else '' }}>{{ name }}</option>{% endfor %}</select></label>
+  <label>Stav<select name="status"><option value="">Všechny stavy</option>{% for name in statuses_filter %}<option value="{{ name }}" {{ 'selected' if status==name else '' }}>{{ name }}</option>{% endfor %}</select></label>
+  <div class="filter-actions"><button type="submit">Použít filtr</button><a class="reset-link" href="/admin/costs">Vymazat</a></div>
+</form>
+
+<div class="grid cost-metrics cost-metrics-v2">
+  <section><b>${{ '%.6f'|format(totals.cost) }}</b><span>Známý náklad providerů</span><small>Včetně známých nákladů nevalidních výstupů</small></section>
+  <section><b>${{ '%.6f'|format(totals.booked_success) }}</b><span>Náklad dokončených úloh</span><small>Původní účetní pohled Enginu</small></section>
+  <section><b>{{ totals.completed }} / {{ totals.jobs }}</b><span>Dokončeno / požadavků</span></section>
+  <section><b>{{ totals.input }} / {{ totals.output }}</b><span>Tokeny in / out</span></section>
+  <section><b>{{ totals.user_count }}</b><span>Uživatelů ve filtru</span></section>
+  <section><b>${{ '%.6f'|format(totals.internal_cost) }}</b><span>Interní admin-console</span><small>Není rozpočítáno zákazníkům</small></section>
+</div>
+
+<div class="notice warn"><strong>Jak číst náklady:</strong> od v0.5.8 je hlavní částka sestavená z evidovaných provider callů v <code>job_attempts</code>, takže zahrne i známý tokenový náklad odpovědi, která nakonec neprošla validací. Starší dokončené úlohy bez attemptu se doplní z uloženého nákladu jobu. Je to stále odhad podle cen nastavených v Enginu, nikoli faktura providera.</div>
+{% if failed_attempts_unknown or failed_attempts_known_cost or zero_cost_calls %}<div class="notice warn">{% if failed_attempts_known_cost %}Známý náklad neúspěšných/nevalidních volání: <strong>${{ '%.6f'|format(failed_attempts_known_cost) }}</strong>. {% endif %}{% if failed_attempts_unknown %}<strong>{{ failed_attempts_unknown }}</strong> technických neúspěchů nemá známou tokenovou cenu a provider je mohl přesto částečně účtovat. {% endif %}{% if zero_cost_calls %}<strong>{{ zero_cost_calls }}</strong> zpracovaných provider callů má nulový evidovaný náklad; zkontroluj tarif modelu.{% endif %}</div>{% endif %}
+
+<section class="panel"><div class="panelhead"><div><h2>Náklady po aplikacích, projektech a uživatelích</h2><p><code>admin-console</code> jsou pouze testy spuštěné z administrace. Nejsou rozpočítané do zákaznických projektů ani účtů.</p></div></div>
+<div class="cost-table"><table><thead><tr><th>Aplikace</th><th>Projekt</th><th>Uživatel</th><th>Požadavky</th><th>Dokončeno</th><th>Tokeny in / out</th><th>Provider cost USD</th><th>Platformy</th></tr></thead><tbody>
+{% for row in apps %}
+<tr><td><a href="{{ url_for('admin_costs',period=period,source=row.source,project=(row.project if row.project else '__missing__'),user_id=row.user_id or '',date_from=date_from,date_to=date_to) }}"><strong>{{ 'Interní testy administrace' if row.source=='admin-console' else (row.source or 'nezadáno') }}</strong> ↗</a></td><td>{{ row.project if row.project else 'Bez projektu' }}</td><td>{{ row.user_label }}</td><td>{{ row.jobs }}</td><td>{{ row.completed }}</td><td>{{ row.input }} / {{ row.output }}</td><td class="mono"><strong>${{ '%.6f'|format(row.cost) }}</strong></td><td>{% for p,amount in row.providers|dictsort %}<span class="provider-chip">{{ p }} · ${{ '%.6f'|format(amount) }}</span>{% endfor %}</td></tr>
+{% else %}<tr><td colspan="8">V tomto filtru nejsou žádná data.</td></tr>{% endfor %}
+</tbody></table></div></section>
+
+<div class="grid two">
+<section class="panel"><h2>Náklady po AI platformách</h2><div class="cost-table"><table><thead><tr><th>Platforma</th><th>Provider calls</th><th>Tokeny in / out</th><th>Náklad USD</th><th>Podíl</th></tr></thead><tbody>{% for row in providers %}<tr><td><a href="{{ url_for('admin_costs',period=period,source=source,project=('__missing__' if project=='' else (project or '')),user_id=user_id,provider=row.provider,status=status,date_from=date_from,date_to=date_to) }}"><strong>{{ row.provider }}</strong> ↗</a></td><td>{{ row.calls }}</td><td>{{ row.input }} / {{ row.output }}</td><td class="mono">${{ '%.6f'|format(row.cost) }}</td><td>{{ '%.1f'|format(row.cost / totals.cost * 100 if totals.cost else 0) }} %</td></tr>{% else %}<tr><td colspan="5">Zatím žádný provoz.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="panel"><h2>Proč se částka může lišit od OpenAI / Gemini / Claude?</h2><p>Engine zná jen požadavky, které prošly přes něj, a počítá je podle sazby uložené u route. Provider dashboard může navíc zahrnovat jiný časový interval, jiné API klíče/projekty, technicky neúspěšné requesty bez tokenového reportu nebo jinou skutečnou sazbu.</p><p><strong>Proto nesrovnávám rozdíl automaticky jako chybu.</strong> Pokud se po této úpravě například OpenAI stále liší, první kontrola je stejné období + stejný API klíč + správná sazba modelu.</p></section>
+</div>
+
+<section class="panel"><div class="panelhead"><div><h2>Poslední požadavky ve filtru</h2><p>Maximálně 50 nejnovějších. Kliknutím otevřeš detail procesu.</p></div></div><div class="cost-table"><table><thead><tr><th>Čas (Praha)</th><th>Aplikace / projekt</th><th>Uživatel</th><th>Stav</th><th>Platforma / model</th><th>Evidovaný job cost</th></tr></thead><tbody>{% for job in recent %}<tr><td><a href="/admin/jobs/{{ job.id }}">{{ job.created_at|prague_time('%d.%m.%Y %H:%M:%S') }}</a></td><td>{{ 'Interní testy administrace' if job.source=='admin-console' else (job.source or 'nezadáno') }}<small>{{ job.project_id or 'Bez projektu' }}</small></td><td>{{ user_labels.get(job.user_id, job.user_id) if job.user_id else '—' }}</td><td><span class="status {{ job.status }}">{{ job.status }}</span></td><td>{{ job.provider or '—' }}<small>{{ job.model_name or '' }}</small></td><td class="mono">{{ ('$' ~ ('%.6f'|format(job.estimated_cost_usd or 0))) if (job.estimated_cost_usd or 0)>0 else '—' }}</td></tr>{% else %}<tr><td colspan="6">Žádné požadavky.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

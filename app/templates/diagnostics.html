@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Manifest · Fresh AI Engine{% endblock %}
+{% block content %}
+<header><div><h1>Manifest & diagnostika</h1><p>Jednoduchý bezpečný snímek aplikace pro kontrolu a vývoj. Časy jsou zobrazené v pásmu Praha.</p></div></header>
+{% if notice %}<div class="notice {{ 'warn' if error else '' }}">{{ notice }}</div>{% endif %}
+<section class="panel diag-simple">
+  <div class="panelhead"><div><h2>Aktuální snímek</h2><p>Manifest neobsahuje API klíče, hesla, databázi ani původní prompty.</p></div></div>
+  <div class="diag-meta">
+    <div><small>Engine</small><strong>v{{ report.engine_version or engine_version }}</strong></div>
+    <div><small>Vygenerováno</small><strong>{{ report.generated_at|prague_time if report.generated_at else '—' }}</strong></div>
+    <div><small>Platnost odkazu</small><strong>{{ share.expires_at|prague_time if share else 'Nevytvořen' }}</strong></div>
+    <div><small>Naposledy aktualizováno</small><strong>{{ share.refreshed_at|prague_time if share else '—' }}</strong></div>
+  </div>
+
+  {% if token %}
+  <label>Manifest JSON
+    <div class="copy-row"><input id="manifest-url" class="share-url mono" readonly value="{{ manifest_url }}"><button type="button" onclick="copyField('manifest-url')">Kopírovat</button><a class="button-link" href="{{ manifest_url }}" target="_blank" rel="noreferrer noopener">Otevřít</a></div>
+  </label>
+  {% elif share %}
+  <div class="finance-hint">Platný manifest existuje, ale přístupový token se z bezpečnostních důvodů neukládá v čitelné podobě. Klikni na „Obnovit odkaz“ a dostaneš nový.</div>
+  {% else %}
+  <div class="finance-hint">Sdílený manifest zatím není vytvořený.</div>
+  {% endif %}
+
+  <div class="action-row">
+    <form method="post" action="/admin/diagnostics/generate"><button>{{ 'Obnovit odkaz' if share else 'Vytvořit manifest' }}</button></form>
+    {% if share %}<form method="post" action="/admin/diagnostics/refresh">{% if token %}<input type="hidden" name="current_token" value="{{ token }}">{% endif %}<button class="secondary-button" type="submit">Aktualizovat data</button></form>{% endif %}
+    {% if share %}<form method="post" action="/admin/diagnostics/revoke"><button class="danger" type="submit">Zneplatnit odkaz</button></form>{% endif %}
+  </div>
+
+  {% if token %}
+  <details class="diag-secondary"><summary>Diagnostický ZIP pro hlubší kontrolu</summary><p>ZIP obsahuje manifest a bezpečný výběr zdrojových souborů; neobsahuje <code>.env</code>, databázi ani raw logy.</p><div class="copy-row"><input id="bundle-url" class="share-url mono" readonly value="{{ bundle_url }}"><button type="button" onclick="copyField('bundle-url')">Kopírovat</button><a class="button-link" href="{{ bundle_url }}" target="_blank" rel="noreferrer noopener">Stáhnout ZIP</a></div></details>
+  {% endif %}
+</section>
+<section class="panel"><h2>Co manifest obsahuje</h2><p>Verzi Enginu a Routeru, runtime, modelové route a jejich profily, schopnosti, anonymizovaný přehled posledních úloh, stav providerů a inventář relevantních souborů. Je určený k technické diagnostice, ne jako export zákaznických dat.</p></section>
+<script>function copyField(id){const el=document.getElementById(id);navigator.clipboard.writeText(el.value).then(()=>{el.select();});}</script>
+{% endblock %}

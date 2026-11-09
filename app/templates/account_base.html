@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Fresh AI Engine{% endblock %}</title>
+  <link rel="icon" href="https://www.freshcrackers.cz/wp-content/uploads/2023/10/Fresh-Crackers-Logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=058">
+  <link rel="stylesheet" href="/static/support.css?v=058">
+</head>
+<body>
+<button class="mobile-nav-toggle" type="button" aria-controls="app-sidebar" aria-expanded="false" aria-label="Otevřít menu">☰</button>
+<div class="nav-backdrop" hidden></div>
+<aside id="app-sidebar">
+  <a class="brand brand-stacked" href="/account"><img src="https://www.freshcrackers.cz/wp-content/uploads/2023/10/Fresh-Crackers-Logo.png" alt="Fresh Crackers"><small>Fresh AI Engine · Zákaznický účet</small></a>
+  <nav>
+    <a href="/account">Účet & kredity</a>
+    <a href="/account/connectors">API konektory</a>
+    <a href="/account/developer-api">Developer API</a>
+    <a href="/account/fresh-key">Propojení</a>
+    <a href="/account/models">Připojené modely</a>
+    <a href="/account/costs">Spotřeba & provoz</a>
+    <form method="post" action="/account/logout"><button class="nav-logout" type="submit">Odhlásit se</button></form>
+  </nav>
+</aside>
+<main>{% block content %}{% endblock %}</main>
+{% include 'support_widget.html' %}
+<script>
+(function(){
+  const btn=document.querySelector('.mobile-nav-toggle'), side=document.getElementById('app-sidebar'), bg=document.querySelector('.nav-backdrop');
+  if(!btn||!side||!bg)return;
+  const setOpen=(open)=>{side.classList.toggle('menu-open',open);btn.setAttribute('aria-expanded',open?'true':'false');btn.textContent=open?'×':'☰';bg.hidden=!open;document.body.classList.toggle('menu-open-body',open)};
+  btn.addEventListener('click',()=>setOpen(!side.classList.contains('menu-open')));
+  bg.addEventListener('click',()=>setOpen(false));
+  side.addEventListener('click',e=>{if(e.target.closest('a')&&window.innerWidth<=760)setOpen(false)});
+  window.addEventListener('resize',()=>{if(window.innerWidth>760)setOpen(false)});
+})();
+</script>
+</body>
+</html>
